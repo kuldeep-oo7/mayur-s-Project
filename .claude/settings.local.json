@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Admin/Desktop/**)",
+      "Bash(node generate-doc.js)",
+      "Bash(powershell -Command \"Start-Process 'C:\\\\Users\\\\Admin\\\\Desktop\\\\Canteen-Insights-Overview.docx'\")",
+      "PowerShell(cd \"D:\\\\nexus_HR_Ai_extracted\\\\nexus_HR_Ai\\\\backend\"; Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd \"D:\\\\nexus_HR_Ai_extracted\\\\nexus_HR_Ai\\\\backend\"; npm run dev 2>&1' -WindowStyle Minimized; Write-Host \"Backend server process launched\")",
+      "PowerShell(Start-Sleep -Seconds 4; $result = Invoke-WebRequest -Uri \"http://127.0.0.1:3001/api/health\" -TimeoutSec 5 -ErrorAction SilentlyContinue; if \\($result\\) { $result.Content } else { \"Backend not reachable yet\" })",
+      "PowerShell(Start-Sleep -Seconds 5; $result = Invoke-WebRequest -Uri \"http://localhost:3003\" -UseBasicParsing -TimeoutSec 8 -ErrorAction SilentlyContinue; if \\($result\\) { \"Frontend is UP - status: $\\($result.StatusCode\\)\" } else { \"Frontend not ready yet\" })",
+      "Bash(mkdir -p \"D:/nexus_HR_Ai_extracted/nexus_HR_Ai/.claude\")",
+      "Bash(npx tsc *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:3003/)"
+    ]
+  }
+}

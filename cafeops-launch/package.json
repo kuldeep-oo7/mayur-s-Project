@@ -1,0 +1,21 @@
+{
+  "name": "cafeops-launch",
+  "version": "1.0.0",
+  "description": "CaféOps 8-second launch video",
+  "scripts": {
+    "studio": "npx remotion studio src/index.jsx",
+    "render": "npx remotion render src/index.jsx LaunchVideo out/launch-no-audio.mp4",
+    "render:audio": "npx remotion render src/index.jsx LaunchVideoWithAudio out/launch.mp4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@remotion/cli": "^4.0.457",
+    "@remotion/media-utils": "^4.0.457",
+    "@remotion/renderer": "^4.0.457",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "remotion": "^4.0.457"
+  }
+}

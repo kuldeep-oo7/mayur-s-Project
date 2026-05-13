@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canteen Insights — Executive Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Page shell ── */
+  .page {
+    width: 297mm;          /* A4 landscape */
+    min-height: 210mm;
+    margin: 0 auto;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: auto 1fr auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,.12);
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      box-shadow: none;
+      margin: 0;
+    }
+    @page { size: A4 landscape; margin: 0; }
+  }
+
+  /* ── Left accent panel ── */
+  .panel {
+    grid-row: 1 / -1;
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 36px 28px;
+    gap: 0;
+  }
+
+  .panel-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .panel-logo-icon {
+    width: 40px; height: 40px;
+    background: #3b82f6;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .panel-logo h1 {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -.02em;
+  }
+  .panel-logo span {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 400;
+  }
+
+  .panel-headline {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -.03em;
+    margin-bottom: 14px;
+    color: #f1f5f9;
+  }
+  .panel-headline em {
+    font-style: normal;
+    color: #60a5fa;
+  }
+
+  .panel-sub {
+    font-size: 12px;
+    line-height: 1.6;
+    color: #94a3b8;
+    margin-bottom: 28px;
+  }
+
+  .panel-divider {
+    height: 1px;
+    background: rgba(255,255,255,.08);
+    margin-bottom: 24px;
+  }
+
+  .panel-section-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 12px;
+  }
+
+  .stat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stat-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .stat-dot.blue   { background: #3b82f6; }
+  .stat-dot.green  { background: #10b981; }
+  .stat-dot.amber  { background: #f59e0b; }
+  .stat-dot.purple { background: #8b5cf6; }
+  .stat-dot.rose   { background: #f43f5e; }
+  .stat-dot.cyan   { background: #06b6d4; }
+
+  .stat-text {
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.3;
+  }
+  .stat-text strong {
+    color: #f1f5f9;
+    font-weight: 600;
+  }
+
+  .panel-badge {
+    margin-top: auto;
+    padding: 12px 14px;
+    background: rgba(59,130,246,.12);
+    border: 1px solid rgba(59,130,246,.25);
+    border-radius: 8px;
+  }
+  .panel-badge p {
+    font-size: 11px;
+    color: #93c5fd;
+    line-height: 1.5;
+  }
+  .panel-badge strong {
+    color: #bfdbfe;
+  }
+
+  /* ── Right content ── */
+  .content {
+    display: flex;
+    flex-direction: column;
+    padding: 28px 32px 20px;
+    gap: 20px;
+    overflow: hidden;
+  }
+
+  /* Top header strip */
+  .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .content-header h2 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -.01em;
+  }
+  .content-header p {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: .03em;
+  }
+  .tag-blue   { background: #eff6ff; color: #1d4ed8; }
+  .tag-green  { background: #f0fdf4; color: #15803d; }
+
+  /* Feature grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .feature-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 10px 10px 0 0;
+  }
+  .feature-card.blue::before   { background: #3b82f6; }
+  .feature-card.green::before  { background: #10b981; }
+  .feature-card.amber::before  { background: #f59e0b; }
+  .feature-card.purple::before { background: #8b5cf6; }
+  .feature-card.rose::before   { background: #f43f5e; }
+  .feature-card.cyan::before   { background: #06b6d4; }
+
+  .feature-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .feature-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+    letter-spacing: -.01em;
+  }
+  .feature-desc {
+    font-size: 10.5px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* Value row */
+  .value-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .value-card {
+    background: #0f172a;
+    color: #f1f5f9;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .value-card .val-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .value-card .val-number {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    color: #60a5fa;
+    line-height: 1;
+  }
+  .value-card .val-desc {
+    font-size: 10.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+  }
+
+  /* Workflow strip */
+  .workflow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    background: #f1f5f9;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .wf-step {
+    flex: 1;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+  .wf-step:not(:last-child)::after {
+    content: '›';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 18px;
+    z-index: 1;
+  }
+  .wf-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #0f172a;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .wf-text .wf-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .wf-text .wf-sub {
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  /* Footer */
+  .content-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .footer-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    letter-spacing: .02em;
+  }
+  .footer-note {
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Left panel ── -->
+  <aside class="panel">
+    <div class="panel-logo">
+      <div class="panel-logo-icon">🍽️</div>
+      <div>
+        <h1>Canteen<br>Insights</h1>
+        <span>v2.0</span>
+      </div>
+    </div>
+
+    <div class="panel-headline">
+      Full control of your<br><em>canteen spend</em>,<br>in one place.
+    </div>
+
+    <p class="panel-sub">
+      A web-based operations platform that gives kitchen managers and finance teams complete, real-time visibility into every rupee spent on canteen procurement.
+    </p>
+
+    <div class="panel-divider"></div>
+    <div class="panel-section-label">What it tracks</div>
+
+    <div class="stat-list">
+      <div class="stat-item">
+        <span class="stat-dot blue"></span>
+        <span class="stat-text"><strong>Purchase invoices</strong> — every bill, every vendor</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot green"></span>
+        <span class="stat-text"><strong>Price history</strong> — per item, over time</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot amber"></span>
+        <span class="stat-text"><strong>Price spikes</strong> — auto-flagged at +10%</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot purple"></span>
+        <span class="stat-text"><strong>Category spend</strong> — Vegetables, Dairy, Dry goods…</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot rose"></span>
+        <span class="stat-text"><strong>Supplier performance</strong> — volume and cost</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-dot cyan"></span>
+        <span class="stat-text"><strong>Monthly trends</strong> — month-on-month comparisons</span>
+      </div>
+    </div>
+
+    <div class="panel-divider"></div>
+
+    <div class="panel-badge">
+      <p><strong>Built for Indian canteens.</strong> Supports GST / IGST breakdowns, ₹ currency, and exports that plug straight into Tally &amp; Excel.</p>
+    </div>
+  </aside>
+
+  <!-- ── Right content ── -->
+  <main class="content">
+
+    <div class="content-header">
+      <div>
+        <h2>Platform Overview — Canteen Insights v2.0</h2>
+        <p>Enterprise canteen procurement &amp; analytics · Confidential</p>
+      </div>
+      <span class="tag tag-blue">Internal Operations Tool</span>
+    </div>
+
+    <!-- Feature grid -->
+    <div class="feature-grid">
+      <div class="feature-card blue">
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">Live Dashboard</div>
+        <div class="feature-desc">Real-time KPIs — monthly spend, purchase count, average order value, top vendor and top item — updated the moment a new invoice is entered.</div>
+      </div>
+
+      <div class="feature-card green">
+        <span class="feature-icon">🧾</span>
+        <div class="feature-title">Invoice Entry &amp; Scan</div>
+        <div class="feature-desc">Two entry modes: tabular batch entry for fast keyboard-driven input, or scan-and-annotate with an invoice image attached for reference.</div>
+      </div>
+
+      <div class="feature-card amber">
+        <span class="feature-icon">📈</span>
+        <div class="feature-title">Price Trend Alerts</div>
+        <div class="feature-desc">Tracks rate history for every item. Automatically flags price spikes (&gt;10% rise) and savings (&gt;10% drop) at the point of entry — before you pay.</div>
+      </div>
+
+      <div class="feature-card purple">
+        <span class="feature-icon">🏪</span>
+        <div class="feature-title">Supplier Analytics</div>
+        <div class="feature-desc">Ranks vendors by total spend, order volume, and last activity. Spot over-reliance or under-utilised suppliers at a glance.</div>
+      </div>
+
+      <div class="feature-card rose">
+        <span class="feature-icon">📅</span>
+        <div class="feature-title">Monthly Reports</div>
+        <div class="feature-desc">Item-level summary with total qty, average rate, total spend, and a Stable / Rising / Falling trend indicator. Filter by any date range.</div>
+      </div>
+
+      <div class="feature-card cyan">
+        <span class="feature-icon">⬇️</span>
+        <div class="feature-title">Excel Export &amp; Audit</div>
+        <div class="feature-desc">One-click export to .xlsx for accounting. Full audit log records every create/edit/delete with user, timestamp, and changed fields.</div>
+      </div>
+    </div>
+
+    <!-- Value strip -->
+    <div class="value-row">
+      <div class="value-card">
+        <span class="val-label">Cost Visibility</span>
+        <span class="val-number">100%</span>
+        <span class="val-desc">Every purchase digitised, searchable, and reportable — no more paper bills in a drawer.</span>
+      </div>
+      <div class="value-card">
+        <span class="val-label">Anomaly Detection</span>
+        <span class="val-number">&lt;1 min</span>
+        <span class="val-desc">Price spikes surfaced automatically at entry time — not discovered weeks later on a P&amp;L.</span>
+      </div>
+      <div class="value-card">
+        <span class="val-label">Reporting Time Saved</span>
+        <span class="val-number">~4 hrs/mo</span>
+        <span class="val-desc">Monthly spend reports generated instantly vs. manual spreadsheet collation by the kitchen manager.</span>
+      </div>
+    </div>
+
+    <!-- Workflow -->
+    <div class="workflow">
+      <div class="wf-step">
+        <div class="wf-num">1</div>
+        <div class="wf-text">
+          <div class="wf-title">Receive Invoice</div>
+          <div class="wf-sub">Staff scans or types items</div>
+        </div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">2</div>
+        <div class="wf-text">
+          <div class="wf-title">Auto-validate</div>
+          <div class="wf-sub">Price spike check fires</div>
+        </div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">3</div>
+        <div class="wf-text">
+          <div class="wf-title">Save to Log</div>
+          <div class="wf-sub">Vendor auto-created if new</div>
+        </div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">4</div>
+        <div class="wf-text">
+          <div class="wf-title">Dashboard Updates</div>
+          <div class="wf-sub">KPIs refresh instantly</div>
+        </div>
+      </div>
+      <div class="wf-step">
+        <div class="wf-num">5</div>
+        <div class="wf-text">
+          <div class="wf-title">Review &amp; Export</div>
+          <div class="wf-sub">Reports &amp; Excel for finance</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="content-footer">
+      <div class="footer-pills">
+        <span class="pill">Role-based Access (Admin / Staff)</span>
+        <span class="pill">JWT Auth + Rate Limiting</span>
+        <span class="pill">GST / IGST Support</span>
+        <span class="pill">Dark &amp; Light Mode</span>
+        <span class="pill">Mobile Responsive</span>
+        <span class="pill">SQLite Backend</span>
+        <span class="pill">Excel / Tally Export</span>
+      </div>
+      <div class="footer-note">
+        Canteen Insights v2.0<br>
+        Internal · Confidential
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

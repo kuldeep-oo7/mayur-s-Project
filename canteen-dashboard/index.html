@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Insights</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <img src="assets/logo.png" alt="Canteen Insights logo">
+                <h2>Canteen Insights</h2>
+                <p>Sign in to your account</p>
+            </div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="login-username">Username</label>
+                    <input type="text" id="login-username" class="form-control" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-control" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full" style="padding: 11px; margin-top: 4px; margin-bottom: 16px;">
+                    Sign In
+                </button>
+                <div style="text-align: center;">
+                    <a href="#" id="forgot-password-link" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">
+                        Forgot Password?
+                    </a>
+                </div>
+            </form>
+
+            <form id="forgot-password-form" style="display:none;">
+                <p class="text-muted mb-4" style="font-size: 0.875rem;">Contact your administrator to reset your password.</p>
+                <div style="text-align: center; margin-top: 8px;">
+                    <a href="#" id="back-to-login-link" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">
+                        &larr; Back to login
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Main App Container -->
+    <div id="app" class="app-container" style="display:none;">
+
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+            <div class="sidebar-header">
+                <img src="assets/logo.png" alt="" width="28" height="28" style="border-radius: 6px; object-fit: contain; flex-shrink: 0;">
+                <h2>Canteen Insights</h2>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#/" class="nav-link" data-route="/"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="#/scanner" class="nav-link" data-route="/scanner"><i data-lucide="camera"></i> Scan Invoice</a>
+                <a href="#/entry" class="nav-link" data-route="/entry"><i data-lucide="plus-circle"></i> Daily Entry</a>
+                <a href="#/records" class="nav-link" data-route="/records"><i data-lucide="clipboard-list"></i> Records</a>
+
+                <div class="nav-divider"></div>
+                <div class="nav-section-label">Analytics</div>
+                <a href="#/trends" class="nav-link" data-route="/trends"><i data-lucide="trending-up"></i> Price Trends</a>
+                <a href="#/suppliers" class="nav-link" data-route="/suppliers"><i data-lucide="truck"></i> Suppliers</a>
+                <a href="#/monthly" class="nav-link" data-route="/monthly"><i data-lucide="calendar"></i> Monthly Report</a>
+                <a href="#/spending" class="nav-link" data-route="/spending"><i data-lucide="pie-chart"></i> Spending</a>
+                <a href="#/reports" class="nav-link" data-route="/reports"><i data-lucide="bar-chart-2"></i> Reports</a>
+                <a href="#/budget" class="nav-link" data-route="/budget"><i data-lucide="wallet"></i> Budget</a>
+                <a href="#/export" class="nav-link" data-route="/export"><i data-lucide="download"></i> Export Excel</a>
+
+                <div class="nav-divider"></div>
+                <a href="#/audit" class="nav-link" data-route="/audit"><i data-lucide="shield-alert"></i> Audit Log</a>
+                <a href="#/master" class="nav-link" data-route="/master" id="nav-master"><i data-lucide="database"></i> Master Data</a>
+                <a href="#/mdm" class="nav-link" data-route="/mdm" id="nav-mdm"><i data-lucide="layers"></i> Item Master <span id="nav-mdm-badge" style="display:none;background:var(--warning);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:4px;"></span></a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <small>Canteen Dashboard v2.0</small>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="btn-hamburger" id="btn-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+                        <i data-lucide="menu" style="width:20px;height:20px;"></i>
+                    </button>
+                    <h1 id="page-title">Dashboard</h1>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-outline" id="btn-export-global" style="display:none;">
+                        <i data-lucide="download"></i> Export
+                    </button>
+                    <button class="btn-theme-toggle" id="btn-theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+                        <i data-lucide="moon" id="theme-icon" style="width:18px;height:18px;"></i>
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar" id="avatar-initial">U</div>
+                        <span id="active-username-text">User</span>
+                    </div>
+                    <button class="btn btn-ghost" id="btn-logout" title="Sign out" style="padding: 6px 8px;">
+                        <i data-lucide="log-out" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div id="view-container" class="view-container" role="main">
+                <!-- Dynamically injected views -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Zoom Overlay -->
+    <div id="zoom-overlay" class="zoom-overlay" role="dialog" aria-label="Zoomed invoice" onclick="this.classList.remove('open')">
+        <img id="zoom-img" src="" alt="Zoomed invoice" style="max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px;">
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
