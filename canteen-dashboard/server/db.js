@@ -1,25 +1,83 @@
-const sqlite3 = require('sqlite3').verbose();
+const BetterSQLite = require('better-sqlite3');
 const path = require('path');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const fs = require('fs');
 
-const dbDir  = path.resolve(__dirname, 'db');
-if (!require('fs').existsSync(dbDir)) require('fs').mkdirSync(dbDir, { recursive: true });
+const dbDir = path.resolve(__dirname, 'db');
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
 const srcPath = path.resolve(dbDir, 'canteen.sqlite');
 const dbPath = process.env.VERCEL ? '/tmp/canteen.sqlite' : srcPath;
-if (process.env.VERCEL && !require('fs').existsSync(dbPath)) {
-    require('fs').copyFileSync(srcPath, dbPath);
+if (process.env.VERCEL && !fs.existsSync(dbPath)) {
+    fs.copyFileSync(srcPath, dbPath);
 }
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Could not connect to database', err);
-    } else {
-        console.log('Connected to SQLite database');
+
+const _db = new BetterSQLite(dbPath);
+console.log('Connected to SQLite database');
+
+function normalizeParams(params) {
+    if (params === undefined || params === null) return [];
+    if (Array.isArray(params)) return params;
+    return [params];
+}
+
+// sqlite3-compatible shim around better-sqlite3 (synchronous internals, async callbacks via setImmediate)
+const db = {
+    get: function(sql, params, callback) {
+        if (typeof params === 'function') { callback = params; params = []; }
+        try {
+            const row = _db.prepare(sql).get(normalizeParams(params));
+            if (callback) setImmediate(() => callback(null, row));
+        } catch (err) {
+            if (callback) setImmediate(() => callback(err));
+        }
+    },
+    all: function(sql, params, callback) {
+        if (typeof params === 'function') { callback = params; params = []; }
+        try {
+            const rows = _db.prepare(sql).all(normalizeParams(params));
+            if (callback) setImmediate(() => callback(null, rows));
+        } catch (err) {
+            if (callback) setImmediate(() => callback(err));
+        }
+    },
+    run: function(sql, params, callback) {
+        if (typeof params === 'function') { callback = params; params = []; }
+        try {
+            const info = _db.prepare(sql).run(normalizeParams(params));
+            if (callback) setImmediate(function() {
+                callback.call({ lastID: info.lastInsertRowid, changes: info.changes }, null);
+            });
+        } catch (err) {
+            if (callback) setImmediate(() => callback.call({}, err));
+        }
+    },
+    serialize: function(fn) {
+        if (fn) fn();
+    },
+    prepare: function(sql) {
+        const stmt = _db.prepare(sql);
+        return {
+            run: function(params, callback) {
+                if (typeof params === 'function') { callback = params; params = []; }
+                try {
+                    const info = stmt.run(normalizeParams(params));
+                    if (callback) setImmediate(function() {
+                        callback.call({ lastID: info.lastInsertRowid, changes: info.changes }, null);
+                    });
+                } catch (err) {
+                    if (callback) setImmediate(() => callback.call({}, err));
+                }
+            },
+            finalize: function(callback) {
+                if (callback) setImmediate(() => callback(null));
+            }
+        };
     }
-});
+};
 
 function initDB() {
     db.serialize(async () => {
-        // Users Table
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
@@ -28,7 +86,6 @@ function initDB() {
             status TEXT DEFAULT 'active'
         )`);
 
-        // Seed Users if empty
         db.get('SELECT COUNT(*) as count FROM users', async (err, row) => {
             if (row && row.count === 0) {
                 const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'changeMe123!';
@@ -40,21 +97,19 @@ function initDB() {
                 console.log('Seeded default users (admin, staff) - CHANGE DEFAULT PASSWORDS IMMEDIATELY');
             }
         });
-        // Vendors Table
+
         db.run(`CREATE TABLE IF NOT EXISTS vendors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
             status TEXT DEFAULT 'active'
         )`);
 
-        // Categories Table
         db.run(`CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
             status TEXT DEFAULT 'active'
         )`);
 
-        // Items Table
         db.run(`CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -65,7 +120,6 @@ function initDB() {
             FOREIGN KEY (categoryId) REFERENCES categories(id)
         )`);
 
-        // Purchases Table
         db.run(`CREATE TABLE IF NOT EXISTS purchases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT,
@@ -95,7 +149,6 @@ function initDB() {
             FOREIGN KEY (userId) REFERENCES users(id)
         )`);
 
-        // Budgets Table
         db.run(`CREATE TABLE IF NOT EXISTS budgets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             month TEXT NOT NULL,
@@ -104,8 +157,6 @@ function initDB() {
             UNIQUE(month, category)
         )`);
 
-        // ── MDM: Master Data Management ───────────────────────────────────────
-        // Layer 1: The Golden Record
         db.run(`CREATE TABLE IF NOT EXISTS item_master (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             standard_name TEXT NOT NULL UNIQUE,
@@ -114,7 +165,6 @@ function initDB() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // Layer 2: Translation / Alias layer  (Gujarati, Hindi, English variants)
         db.run(`CREATE TABLE IF NOT EXISTS item_aliases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_master_id INTEGER NOT NULL,
@@ -125,7 +175,6 @@ function initDB() {
             FOREIGN KEY (item_master_id) REFERENCES item_master(id) ON DELETE CASCADE
         )`);
 
-        // Layer 3: Vendor SKU / commercial layer (supplier-specific names + unit conversions)
         db.run(`CREATE TABLE IF NOT EXISTS supplier_sku_map (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_master_id INTEGER NOT NULL,
@@ -140,7 +189,6 @@ function initDB() {
             FOREIGN KEY (vendor_id) REFERENCES vendors(id)
         )`);
 
-        // Pending approvals queue (OCR strings that couldn't be resolved with high confidence)
         db.run(`CREATE TABLE IF NOT EXISTS mdm_pending (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             raw_string TEXT NOT NULL,
@@ -155,7 +203,6 @@ function initDB() {
             FOREIGN KEY (resolved_master_id) REFERENCES item_master(id)
         )`);
 
-        // Seed item_master with canonical canteen items (runs only if table is empty)
         db.get('SELECT COUNT(*) as count FROM item_master', (err, row) => {
             if (err || row.count > 0) return;
             const masters = [
@@ -195,7 +242,6 @@ function initDB() {
             masters.forEach(([name, unit, cat]) => stmt.run([name, unit, cat]));
             stmt.finalize();
 
-            // Seed Gujarati aliases after masters are inserted
             setTimeout(() => {
                 const aliases = [
                     ['Chili Powder',        'મરચા પાવડર',   'gu'],
@@ -225,8 +271,8 @@ function initDB() {
                     ['Besan',               'બેસન',          'gu'],
                     ['Peanuts',             'શિંગદાણા',      'gu'],
                     ['Peanuts',             'singdana',      'en'],
-                    ['Salt',                'મીઠું',         'gu'],
-                    ['Salt',                'mithu',         'en'],
+                    ['Salt',               'મીઠું',          'gu'],
+                    ['Salt',               'mithu',          'en'],
                     ['Cashew',              'કાજૂ કાણી',    'gu'],
                     ['Rice Papdi',          'ચોખાની પાપડી', 'gu'],
                     ['Fryums',              'ફ્રાઈમ્સ',      'gu'],
@@ -249,7 +295,6 @@ function initDB() {
                 aliases.forEach(([master, alias, lang]) => astmt.run([alias, lang, master]));
                 astmt.finalize();
 
-                // Seed Vardhman Retail SKU names
                 const skus = [
                     ['Chili Powder',        'MIRCHI POWDER KASHMIRI BULK', 'KG', 1.0],
                     ['Chili Powder',        'VS MIRCHI POWDER 1KG',        'KG', 1.0],
@@ -292,7 +337,6 @@ function initDB() {
             }, 500);
         });
 
-        // Seed basic categories if empty
         db.get('SELECT COUNT(*) as count FROM categories', (err, row) => {
             if (row && row.count === 0) {
                 const cats = ['Vegetable', 'Grocery/Dry', 'Dairy', 'Fruit', 'Spice', 'Transport Support'];
