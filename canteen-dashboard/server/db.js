@@ -4,7 +4,11 @@ const bcrypt = require('bcrypt');
 
 const dbDir  = path.resolve(__dirname, 'db');
 if (!require('fs').existsSync(dbDir)) require('fs').mkdirSync(dbDir, { recursive: true });
-const dbPath = path.resolve(dbDir, 'canteen.sqlite');
+const srcPath = path.resolve(dbDir, 'canteen.sqlite');
+const dbPath = process.env.VERCEL ? '/tmp/canteen.sqlite' : srcPath;
+if (process.env.VERCEL && !require('fs').existsSync(dbPath)) {
+    require('fs').copyFileSync(srcPath, dbPath);
+}
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Could not connect to database', err);
