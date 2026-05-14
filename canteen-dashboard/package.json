@@ -28,7 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "lucide": "^1.14.0",
     "nodemailer": "^8.0.7",
-    "sqlite3": "^6.0.1",
+    "sqlite3": "5.1.7",
     "tesseract.js": "^7.0.0"
   }
 }
