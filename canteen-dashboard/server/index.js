@@ -8,6 +8,7 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const db = require('./db');
+const { initGemini } = require('./gemini');
 
 const app = express();
 
@@ -795,6 +796,59 @@ app.post('/api/admin/backup', authenticateToken, requireAdmin, (req, res) => {
         if (err) return res.status(500).json({ error: 'Backup failed: ' + err.message });
         res.json({ message: 'Backup created successfully', filename: path.basename(backupPath) });
     });
+});
+
+// ── Gemini OCR Integration ───────────────────────────────────────────────────
+app.post('/api/ocr/gemini', authenticateToken, async (req, res) => {
+    try {
+        const { imageBase64, mimeType } = req.body;
+        if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
+
+        const genAI = initGemini();
+        if (!genAI) {
+            return res.status(500).json({ error: 'Gemini API key is not configured in the backend (.env).' });
+        }
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+        const prompt = `
+        You are a highly capable invoice extraction assistant. Read the provided invoice image (it may be in English, Hindi, Gujarati, or other languages).
+        Extract the following information and return ONLY a valid JSON object. Do not include markdown blocks or any other text.
+        Make sure to translate item names to English if they are in another language.
+        Format requirements:
+        {
+          "supplier": "string (name of the vendor/supplier)",
+          "date": "YYYY-MM-DD",
+          "invoiceNo": "string (invoice or bill number, if available)",
+          "items": [
+            {
+              "name": "string (item name in English)",
+              "qty": number (quantity, 1 if missing),
+              "rate": number (price per unit)
+            }
+          ]
+        }`;
+
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: imageBase64,
+                    mimeType: mimeType || 'image/jpeg'
+                }
+            }
+        ]);
+
+        let responseText = result.response.text();
+        // Clean up potential markdown formatting from the response
+        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        const parsedData = JSON.parse(responseText);
+        res.json(parsedData);
+    } catch (err) {
+        console.error('Gemini API Error:', err);
+        res.status(500).json({ error: 'Failed to process image with Gemini: ' + err.message });
+    }
 });
 
 // ── 404 ───────────────────────────────────────────────────────────────────────

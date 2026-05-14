@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "lucide": "^1.14.0",
-    "nodemailer": "^8.0.7",
-    "tesseract.js": "^7.0.0"
+    "nodemailer": "^8.0.7"
   }
 }

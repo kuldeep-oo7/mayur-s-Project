@@ -1,7 +1,5 @@
-import { api } from '../api.js';
+import { API_BASE, api } from '../api.js';
 import { escapeHtml } from '../utils.js';
-import { runOCR, terminateOCR } from '../ocr.js';
-import { parseInvoice } from '../invoiceParser.js';
 
 const DEFAULT_CAT_MAP = {
     'Tomato':'Vegetable','Potato':'Vegetable','Onion':'Vegetable','Green Chilli':'Vegetable','Red Chilli':'Vegetable','Coriander':'Vegetable','Ginger':'Vegetable','Garlic':'Vegetable','Brinjal':'Vegetable','Okra':'Vegetable','Cauliflower':'Vegetable','Cabbage':'Vegetable','Spinach':'Vegetable','Fenugreek':'Vegetable','Cluster Beans':'Vegetable','Ridge Gourd':'Vegetable','Bitter Gourd':'Vegetable','Bottle Gourd':'Vegetable','Pumpkin':'Vegetable','Raw Banana':'Vegetable','Sweet Potato':'Vegetable','Yam':'Vegetable','Carrot':'Vegetable','Radish':'Vegetable','Beetroot':'Vegetable','Cucumber':'Vegetable','Lemon':'Vegetable','Capsicum':'Vegetable','Corn':'Vegetable','Mushroom':'Vegetable','Peas':'Vegetable','Spring Onion':'Vegetable','Turmeric':'Vegetable',
@@ -240,46 +238,79 @@ export default async function renderScanner() {
         imgEl.dataset.zoomed  = zoomed ? '' : 'true';
     });
 
-    // ── OCR Auto Extract ─────────────────────────────────────────────────────
+    // ── Gemini OCR Auto Extract ─────────────────────────────────────────────
     autoExtractBtn.addEventListener('click', async () => {
         if (!currentFile) return;
 
         // Reset UI
         autoExtractBtn.disabled = true;
-        autoExtractBtn.innerHTML = `<i data-lucide="loader" style="width:14px;height:14px; animation:spin 1s linear infinite;"></i> Reading…`;
+        autoExtractBtn.innerHTML = `<i data-lucide="loader" style="width:14px;height:14px; animation:spin 1s linear infinite;"></i> Reading with Gemini…`;
         lucide.createIcons({ root: autoExtractBtn });
         ocrProgressWrap.style.display = 'block';
         ocrReviewPanel.style.display  = 'none';
-        ocrProgressBar.style.width    = '0%';
-        ocrPct.textContent            = '0%';
-        ocrStatusText.textContent     = 'Enhancing image…';
+        ocrProgressBar.style.width    = '50%';
+        ocrPct.textContent            = '...';
+        ocrStatusText.textContent     = 'Uploading image to Gemini AI…';
 
         try {
-            // Pre-process image: grayscale + contrast boost + upscale
-            ocrStatusText.textContent = 'Enhancing image quality…';
-            const processedBlob = await preprocessInvoiceImage(currentFile);
-
-            const rawText = await runOCR(processedBlob, (pct) => {
-                ocrProgressBar.style.width = pct + '%';
-                ocrPct.textContent         = pct + '%';
-                if (pct < 20)       ocrStatusText.textContent = 'Loading OCR engine…';
-                else if (pct < 50)  ocrStatusText.textContent = 'Reading invoice text…';
-                else if (pct < 90)  ocrStatusText.textContent = 'Extracting fields…';
-                else                ocrStatusText.textContent = 'Parsing items…';
+            // Convert file to Base64
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
             });
 
-            // Parse
-            const parsed = parseInvoice(rawText, KNOWN_ITEMS);
-            lastExtracted = parsed;
+            const base64Data = await toBase64(currentFile);
+            ocrStatusText.textContent = 'Analyzing invoice text…';
+            ocrProgressBar.style.width = '75%';
+
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE}/ocr/gemini`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ imageBase64: base64Data, mimeType: currentFile.type })
+            });
+
+            const parsed = await response.json();
+
+            if (!response.ok) {
+                throw new Error(parsed.error || 'Failed to parse invoice');
+            }
+
+            ocrProgressBar.style.width = '100%';
+            ocrPct.textContent = '100%';
+            ocrStatusText.textContent = 'Done!';
+
+            // Map Gemini response to the expected parsed shape
+            const normalizedParsed = {
+                supplier: parsed.supplier || null,
+                date: parsed.date || null,
+                invoiceNo: parsed.invoiceNo || null,
+                items: (parsed.items || []).map(item => ({
+                    item: item.name || 'Unknown',
+                    qty: item.qty || 1,
+                    rate: item.rate || 0,
+                    amount: (item.qty || 1) * (item.rate || 0),
+                    confidence: 1.0,
+                    source: 'ocr'
+                })),
+                rawText: JSON.stringify(parsed, null, 2)
+            };
+
+            lastExtracted = normalizedParsed;
 
             // Show review panel
             ocrProgressWrap.style.display = 'none';
-            showOCRReview(container, parsed);
+            showOCRReview(container, normalizedParsed);
 
         } catch (err) {
-            console.error('OCR failed:', err);
+            console.error('Gemini OCR failed:', err);
             ocrProgressWrap.style.display = 'none';
-            window.showToast('OCR failed: ' + (err.message || 'Unknown error'), 'error');
+            window.showToast('Gemini OCR failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
             autoExtractBtn.disabled = false;
             autoExtractBtn.innerHTML = `<i data-lucide="scan-line" style="width:14px;height:14px;"></i> Re-extract`;
@@ -347,85 +378,9 @@ export default async function renderScanner() {
 
     lucide.createIcons({ root: container });
 
-    // Clean up OCR worker when this page is replaced
-    container._cleanup = () => terminateOCR().catch(() => {});
-
     return container;
 }
 
-// ── Image pre-processor ───────────────────────────────────────────────────────
-/**
- * Enhance invoice image before OCR:
- *  1. Grayscale conversion
- *  2. Contrast stretch (darken text, lighten background)
- *  3. Upscale to minimum 1600 px wide (Tesseract accuracy improves above 300 DPI)
- *
- * @param {File|Blob} file
- * @returns {Promise<Blob>}  PNG blob ready for Tesseract
- */
-function preprocessInvoiceImage(file) {
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); }; // fallback: use original
-
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-            try {
-                // ── 1. Draw at target scale ──────────────────────────────
-                const MIN_W = 1800;   // min pixel width for good OCR
-                const scale = img.width < MIN_W ? MIN_W / img.width : 1;
-                const w = Math.round(img.width  * scale);
-                const h = Math.round(img.height * scale);
-
-                const canvas = document.createElement('canvas');
-                canvas.width  = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.imageSmoothingEnabled  = true;
-                ctx.imageSmoothingQuality  = 'high';
-                ctx.drawImage(img, 0, 0, w, h);
-
-                // ── 2. Grayscale + contrast stretch ──────────────────────
-                const id   = ctx.getImageData(0, 0, w, h);
-                const data = id.data;
-
-                // First pass: compute mean luminance (for adaptive threshold)
-                let sum = 0;
-                for (let i = 0; i < data.length; i += 4) {
-                    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-                }
-                const mean = sum / (data.length / 4);
-
-                // Second pass: grayscale + stretch
-                for (let i = 0; i < data.length; i += 4) {
-                    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-
-                    // Contrast stretch: push darks darker, lights lighter
-                    let enhanced;
-                    if (gray < mean) {
-                        // Below mean → push toward black (text)
-                        enhanced = Math.max(0, gray * (gray / mean) * 0.75);
-                    } else {
-                        // Above mean → push toward white (background)
-                        enhanced = Math.min(255, 255 - (255 - gray) * ((255 - gray) / (255 - mean)) * 0.6);
-                    }
-
-                    data[i] = data[i + 1] = data[i + 2] = Math.round(enhanced);
-                    // alpha unchanged
-                }
-                ctx.putImageData(id, 0, 0);
-
-                canvas.toBlob(blob => resolve(blob || file), 'image/png');
-            } catch (e) {
-                resolve(file); // fallback
-            }
-        };
-
-        img.src = url;
-    });
-}
 
 // ── OCR Review helpers ────────────────────────────────────────────────────────
 
