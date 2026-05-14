@@ -816,19 +816,28 @@ app.post('/api/ocr/gemini', authenticateToken, async (req, res) => {
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         const prompt = `
-        You are a highly capable invoice extraction assistant. Read the provided invoice image (it may be in English, Hindi, Gujarati, or other languages).
+        You are a highly capable invoice extraction assistant. You will receive an invoice document — it may be a printed receipt, a typed invoice, a scanned document, a PDF, or a HANDWRITTEN bill/challan written by hand with pen or pencil.
+
+        IMPORTANT: If the document is handwritten, make extra effort to decipher the writing carefully. Look for:
+        - Item names written in any script (English, Hindi, Gujarati, Marathi, or mixed)
+        - Quantities written as numbers or words (e.g., "2 kg", "½ kg", "आधा किलो")
+        - Rates/prices which may be written without a ₹ symbol
+        - Crossed-out or corrected entries — use the final/corrected value
+        - Abbreviations common in Indian markets (e.g., "Tom" = Tomato, "Dhn" = Dhania/Coriander, "Pyt" = Pyaaz/Onion)
+
         Extract the following information and return ONLY a valid JSON object. Do not include markdown blocks or any other text.
-        Make sure to translate item names to English if they are in another language.
+        Translate all item names to English. If a field is not found, use null.
+
         Format requirements:
         {
-          "supplier": "string (name of the vendor/supplier)",
-          "date": "YYYY-MM-DD",
-          "invoiceNo": "string (invoice or bill number, if available)",
+          "supplier": "string (name of the vendor/supplier, or null)",
+          "date": "YYYY-MM-DD (or null if not found)",
+          "invoiceNo": "string (invoice or bill number, or null)",
           "items": [
             {
-              "name": "string (item name in English)",
-              "qty": number (quantity, 1 if missing),
-              "rate": number (price per unit)
+              "name": "string (item name translated to English)",
+              "qty": number (quantity as a decimal, default 1 if missing),
+              "rate": number (price per unit, 0 if not readable)
             }
           ]
         }`;
