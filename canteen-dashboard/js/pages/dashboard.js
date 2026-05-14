@@ -26,27 +26,27 @@ export default async function renderDashboard() {
 
         <!-- KPIs -->
         <div class="grid-5 mb-4">
-            <div class="card kpi-card">
+            <div class="kpi-card">
                 <i data-lucide="indian-rupee" class="kpi-icon"></i>
                 <span class="kpi-label">Total Spend</span>
                 <span class="kpi-value" id="kpi-spend">---</span>
             </div>
-            <div class="card kpi-card">
+            <div class="kpi-card">
                 <i data-lucide="shopping-cart" class="kpi-icon"></i>
                 <span class="kpi-label">Purchases</span>
                 <span class="kpi-value" id="kpi-purchases">---</span>
             </div>
-            <div class="card kpi-card">
+            <div class="kpi-card">
                 <i data-lucide="tag" class="kpi-icon"></i>
                 <span class="kpi-label">Avg Order Value</span>
                 <span class="kpi-value" id="kpi-avg">---</span>
             </div>
-            <div class="card kpi-card">
+            <div class="kpi-card">
                 <i data-lucide="truck" class="kpi-icon"></i>
                 <span class="kpi-label">Top Vendor</span>
                 <span class="kpi-value" id="kpi-vendor" style="font-size:1.1rem;">---</span>
             </div>
-            <div class="card kpi-card">
+            <div class="kpi-card">
                 <i data-lucide="package" class="kpi-icon"></i>
                 <span class="kpi-label">Top Item</span>
                 <span class="kpi-value" id="kpi-item" style="font-size:1.1rem;">---</span>
@@ -135,16 +135,24 @@ export default async function renderDashboard() {
                         datasets: [{
                             label: 'Spend (₹)',
                             data:  stats.vendorSpend.map(r => r.value),
-                            backgroundColor: '#3b82f6',
-                            borderRadius: 4,
+                            backgroundColor: '#111827',
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            barPercentage: 0.6,
                         }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: {
-                            callback: v => '₹' + v.toLocaleString('en-IN')
-                        }}}
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                border: { display: false },
+                                grid: { color: 'rgba(0,0,0,0.05)' },
+                                ticks: { callback: v => '₹' + v.toLocaleString('en-IN') }
+                            }
+                        }
                     }
                 });
             }
@@ -159,12 +167,15 @@ export default async function renderDashboard() {
                         labels: stats.categoryDist.map(r => r.label),
                         datasets: [{
                             data: stats.categoryDist.map(r => r.value),
-                            backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],
+                            backgroundColor: ['#111827','#374151','#4b5563','#6b7280','#9ca3af','#d1d5db'],
+                            borderWidth: 0,
+                            hoverOffset: 4
                         }]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+                        cutout: '75%',
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 12, family: 'Inter' }, padding: 20, usePointStyle: true, pointStyle: 'circle' } } }
                     }
                 });
             }
@@ -176,7 +187,7 @@ export default async function renderDashboard() {
                 const trendData = stats.monthlyTrend;
                 // Highlight selected month bar
                 const bgColors = trendData.map(r =>
-                    r.label === month ? '#3b82f6' : 'rgba(59,130,246,0.35)'
+                    r.label === month ? '#111827' : '#e5e7eb'
                 );
                 trendChart = new Chart(tCanvas, {
                     type: 'bar',
@@ -186,7 +197,9 @@ export default async function renderDashboard() {
                             label: 'Monthly Spend (₹)',
                             data:  trendData.map(r => r.value),
                             backgroundColor: bgColors,
-                            borderRadius: 4,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                            barPercentage: 0.6,
                         }]
                     },
                     options: {
@@ -197,9 +210,15 @@ export default async function renderDashboard() {
                                 label: ctx => '₹' + ctx.raw.toLocaleString('en-IN', { maximumFractionDigits: 0 })
                             }}
                         },
-                        scales: { y: { beginAtZero: true, ticks: {
-                            callback: v => '₹' + v.toLocaleString('en-IN')
-                        }}}
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                border: { display: false },
+                                grid: { color: 'rgba(0,0,0,0.05)' },
+                                ticks: { callback: v => '₹' + v.toLocaleString('en-IN') }
+                            }
+                        }
                     }
                 });
                 container.querySelector('#trend-note').textContent =
