@@ -813,7 +813,7 @@ app.post('/api/ocr/gemini', authenticateToken, async (req, res) => {
             return res.status(500).json({ error: 'Gemini API key is not configured in the backend (.env).' });
         }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
         const prompt = `
         You are a highly capable invoice extraction assistant. You will receive an invoice document — it may be a printed receipt, a typed invoice, a scanned document, a PDF, or a HANDWRITTEN bill/challan written by hand with pen or pencil.
