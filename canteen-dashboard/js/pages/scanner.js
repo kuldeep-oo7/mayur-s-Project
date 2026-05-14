@@ -35,13 +35,13 @@ export default async function renderScanner() {
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                 <h3 class="card-title mb-0">Step 1 — Invoice Details</h3>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="btn btn-outline btn-sm" id="btn-upload-trigger" title="Attach invoice image">
-                        <i data-lucide="image" style="width:14px;height:14px;"></i> Attach Image
+                    <button class="btn btn-outline btn-sm" id="btn-upload-trigger" title="Attach invoice image or PDF">
+                        <i data-lucide="file-image" style="width:14px;height:14px;"></i> Attach Image / PDF
                     </button>
                     <button class="btn btn-primary btn-sm" id="btn-auto-extract" style="display:none; gap:6px;">
                         <i data-lucide="scan-line" style="width:14px;height:14px;"></i> Auto Extract
                     </button>
-                    <input type="file" id="invoice-file" accept="image/*" style="display:none">
+                    <input type="file" id="invoice-file" accept="image/*,application/pdf" style="display:none">
                 </div>
             </div>
 
@@ -61,16 +61,23 @@ export default async function renderScanner() {
                 </div>
             </div>
 
-            <!-- Image preview (hidden until uploaded) -->
+            <!-- File preview (hidden until uploaded) -->
             <div id="invoice-preview" style="display:none; margin-top:16px;">
                 <div style="display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;">
                     <img id="invoice-img" src="" alt="Invoice"
                          style="max-width:420px; width:100%; border-radius:8px; border:1px solid var(--border-color); cursor:zoom-in; max-height:340px; object-fit:contain; background:var(--bg-main)">
+                    <div id="invoice-pdf-preview" style="display:none; align-items:center; gap:10px; padding:16px 20px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-main); min-width:200px;">
+                        <i data-lucide="file-text" style="width:32px;height:32px; color:var(--primary); flex-shrink:0;"></i>
+                        <div>
+                            <div id="invoice-pdf-name" style="font-size:13px; font-weight:600; color:var(--text-primary); word-break:break-all;"></div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">PDF ready for OCR</div>
+                        </div>
+                    </div>
                     <div style="flex-shrink:0;">
                         <button class="btn btn-ghost btn-sm" id="btn-clear-img" style="color:var(--danger);">
                             <i data-lucide="x" style="width:14px;height:14px;"></i> Remove
                         </button>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Click image to zoom</div>
+                        <div id="zoom-hint" style="font-size:11px; color:var(--text-muted); margin-top:6px;">Click image to zoom</div>
                     </div>
                 </div>
             </div>
@@ -184,6 +191,9 @@ export default async function renderScanner() {
     const clearImgBtn     = container.querySelector('#btn-clear-img');
     const previewEl       = container.querySelector('#invoice-preview');
     const imgEl           = container.querySelector('#invoice-img');
+    const pdfPreviewEl    = container.querySelector('#invoice-pdf-preview');
+    const pdfNameEl       = container.querySelector('#invoice-pdf-name');
+    const zoomHint        = container.querySelector('#zoom-hint');
     const ocrProgressWrap = container.querySelector('#ocr-progress-wrap');
     const ocrProgressBar  = container.querySelector('#ocr-progress-bar');
     const ocrPct          = container.querySelector('#ocr-pct');
@@ -208,19 +218,41 @@ export default async function renderScanner() {
         const file = e.target.files?.[0];
         if (!file) return;
         currentFile = file;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            imgEl.src = ev.target.result;
+        ocrReviewPanel.style.display = 'none';
+
+        if (file.type === 'application/pdf') {
+            imgEl.style.display = 'none';
+            pdfPreviewEl.style.display = 'flex';
+            pdfNameEl.textContent = file.name;
+            zoomHint.style.display = 'none';
             previewEl.style.display = 'block';
             autoExtractBtn.style.display = 'flex';
-            ocrReviewPanel.style.display = 'none';
             lucide.createIcons({ root: container.querySelector('.card') });
-        };
-        reader.readAsDataURL(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                imgEl.src = ev.target.result;
+                imgEl.style.display = 'block';
+                pdfPreviewEl.style.display = 'none';
+                zoomHint.style.display = 'block';
+                previewEl.style.display = 'block';
+                autoExtractBtn.style.display = 'flex';
+                lucide.createIcons({ root: container.querySelector('.card') });
+            };
+            reader.readAsDataURL(file);
+        }
     });
 
     clearImgBtn.addEventListener('click', () => {
         imgEl.src = '';
+        imgEl.style.display = 'block';
+        imgEl.dataset.zoomed = '';
+        imgEl.style.maxWidth  = '420px';
+        imgEl.style.maxHeight = '340px';
+        imgEl.style.cursor    = 'zoom-in';
+        pdfPreviewEl.style.display = 'none';
+        pdfNameEl.textContent = '';
+        zoomHint.style.display = 'block';
         previewEl.style.display = 'none';
         fileInput.value = '';
         currentFile = null;
@@ -231,6 +263,7 @@ export default async function renderScanner() {
     });
 
     imgEl.addEventListener('click', () => {
+        if (currentFile?.type === 'application/pdf') return;
         const zoomed = imgEl.dataset.zoomed === 'true';
         imgEl.style.maxWidth  = zoomed ? '420px' : 'none';
         imgEl.style.maxHeight = zoomed ? '340px' : 'none';
@@ -250,7 +283,7 @@ export default async function renderScanner() {
         ocrReviewPanel.style.display  = 'none';
         ocrProgressBar.style.width    = '50%';
         ocrPct.textContent            = '...';
-        ocrStatusText.textContent     = 'Uploading image to Gemini AI…';
+        ocrStatusText.textContent     = 'Uploading file to Gemini AI…';
 
         try {
             // Convert file to Base64
