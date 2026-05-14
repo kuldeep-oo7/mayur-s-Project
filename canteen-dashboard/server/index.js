@@ -12,7 +12,7 @@ const db = require('./db');
 const app = express();
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
 function isLocalOrigin(origin) {
